@@ -26,9 +26,10 @@
 
   <script>
     var video = document.querySelector("#videoElement");
+    var imageCapture;
   
     navigator.getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia || navigator.msGetUserMedia || navigator.oGetUserMedia;
-  
+
     if (navigator.getUserMedia) {       
         navigator.getUserMedia({video: true}, handleVideo, videoError);
     }
@@ -37,15 +38,27 @@
         video.src = window.URL.createObjectURL(stream);
     }
   
-    function videoError(e) {
-        // do something
-  } 
+    function videoError() {
+        console.log("Video Error");
+    }
+
+    function takePhoto() {
+      imageCapture.takePhoto()
+        .then(blob => {
+          console.log('Photo taken: ' + blob.type + ', ' + blob.size + 'B');
+          const image = document.querySelector('img');
+          image.src = URL.createObjectURL(blob);
+        })
+        .catch(err => console.error('takePhoto() failed: ', err));
+    }
   </script>
 
-    <input type="file" accept="image/*;capture=camera">
-    <center><form action="upload_photo" method="post" enctype="multipart/form-data">
-      Upload Photo: <input type="file" name="file" id="file">
-    <input type="submit" name="submit" value="Upload Image"></form></center>
+  <button onclick="takePhoto()">Capture Image</button>
+
+  <input type="file" accept="image/*;capture=camera">
+  <center><form action="upload_photo" method="post" enctype="multipart/form-data">
+    Upload Photo: <input type="file" name="file" id="file">
+  <input type="submit" name="submit" value="Upload Image"></form></center>
 
 <form enctype="multipart/form-data" method="post">
   <h2>Regular file upload</h2>
