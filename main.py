@@ -29,7 +29,7 @@ def upload_photo():
     storage_client = storage.Client()
 
     # Get the Cloud Storage bucket that the file will be uploaded to.
-    bucket = storage_client.get_bucket(os.environ.get('CLOUD_STORAGE_BUCKET'))
+    bucket = storage_client.get_bucket(os.environ.get('BUCKET'))
 
     # Create a new blob and upload the file's content to Cloud Storage.
     photo = request.files['file']
@@ -45,7 +45,7 @@ def upload_photo():
     vision_client = vision.ImageAnnotatorClient()
 
     # Retrieve a Vision API response for the photo stored in Cloud Storage
-    source_uri = 'gs://{}/{}'.format(os.environ.get('CLOUD_STORAGE_BUCKET'), blob.name)
+    source_uri = 'gs://{}/{}'.format(os.environ.get('BUCKET'), blob.name)
     response = vision_client.annotate_image({
         'image': {'source': {'image_uri': source_uri}},
     })
@@ -82,11 +82,10 @@ def upload_photo():
         emotions += [face.anger_likelihood]
         emotions += [face.surprise_likelihood]
         emotions += [face.headwear_likelihood]
-    num_emotions = []
-    for emotion in emotions:
-        num_emotions += [switch(emotion)]
-
-    emojifinal = num_to_emoji(num_emotions)
+    if len(emotions) > 0:
+        emojifinal = num_to_emoji(emotions)
+    else:
+        emojifinal = "No face detected"
 
     return render_template('homepage.html', labels=labels, faces=faces, web_entities=web_entities, public_url=image_public_url,emojifinal=emojifinal)
 
@@ -110,18 +109,19 @@ def switch(emo):
 
 def num_to_emoji(values):
     ejstring = ""
-    emojicodes = ["\u1F600","\u2639""\u1F621""\u1F631"]
+    emojicodes = ["\U0001F600","\U00002639","\U0001F620","\U0001F631"]
     J = 0
     SO = 1
     A = 2
     SU = 3
     H = 4
     if values[4] >= 3:
-        eistring = "\u1F920"
+        eistring = "\U0001F920"
         return eistring
-    values.pop(4)
-    if all(values[0] == values for val in values):
-        eistring = "\u1F643"
+    values.pop()
+    print("VALUES" + str(values[0]) + " " + str(values[1]) + " " + str(values[2]) + " " + str(values[3]))
+    if (values[0] == values[1] and values[1] == values[2] and values[2] == values[3]):
+        eistring = "\U0001F643"
         return eistring
     eistring = emojicodes[values.index(max(values))]
     return eistring
