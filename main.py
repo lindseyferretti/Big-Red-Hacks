@@ -1,5 +1,13 @@
 import base64
 import os
+from PIL import Image
+import re
+from io import StringIO
+import random
+import urllib
+import json
+
+from binascii import a2b_base64
 
 from flask import Flask, redirect, render_template, request
 from google.cloud import datastore
@@ -17,7 +25,7 @@ def homepage():
 
     # Use the Cloud Datastore client to fetch information from Datastore about
     # each photo.
-    query = datastore_client.query(kind='Photos')
+    query = datastore_client.query(kind='Blob')
     image_entities = list(query.fetch())    
 
     # Return a Jinja2 HTML template.
@@ -32,25 +40,47 @@ def upload_photo():
     bucket = storage_client.get_bucket(os.environ.get('BUCKET'))
 
     # Create a new blob and upload the file's content to Cloud Storage.
-    photo = request.files['file']
-    blob = bucket.blob(photo.filename)
-    blob.upload_from_string(photo.read(), content_type=photo.content_type)
+    # image_b64 = request.values['file']
+    # image_data = re.sub('^data:image/.+;base64,', '', image_b64).decode('base64')
+    # image_PIL = Image.open(StringIO(image_b64))
+    #
+    # image_PIL.save("image.png")
 
+    # print("fml")
+    # print(request.data)
+
+    dataDict = json.loads(request.data.decode(encoding='UTF-8'))
+
+    print(dataDict['weirdImg'])
+
+    imgData = urllib.parse.unquote(dataDict['weirdImg'])
+    print(imgData)
+
+    blob = bucket.blob("image.png")
+    blob.upload_from_string(
+        imgData)
+    print("Got to spot 1")
     # Make the blob publicly viewable.
     blob.make_public()
     image_public_url = blob.public_url
-    
+    print("Got to spot 2")
+
     # Create a Cloud Vision client.
     vision_client = vision.ImageAnnotatorClient()
 
     # Retrieve a Vision API response for the photo stored in Cloud Storage
     source_uri = 'gs://{}/{}'.format(os.environ.get('BUCKET'), blob.name)
     response = vision_client.annotate_image({
-        'image': {'source': {'image_uri': source_uri}},
+        'image': {'content': imgData.encode()},
     })
+
+    print(response)
+
+    print("Got to spot 3")
     labels = response.label_annotations
     faces = response.face_annotations
     web_entities = response.web_detection.web_entities
+    print("Got to spot 4")
 
     # Create a Cloud Datastore client
     datastore_client = datastore.Client()
@@ -63,15 +93,27 @@ def upload_photo():
 
     # Create the Cloud Datastore key for the new entity
     key = datastore_client.key(kind, name)
+    print("Got to spot 5")
 
     # Construct the new entity using the key. Set dictionary values for entity
     # keys image_public_url and label.
-    entity = datastore.Entity(key)
-    entity['image_public_url'] = image_public_url
-    entity['label'] = labels[0].description
-
-    # Save the new entity to Datastore
-    datastore_client.put(entity)
+    # entity = datastore.Entity(key)
+    # entity['image_public_url'] = image_public_url
+    #
+    #
+    #
+    #
+    # #labels[0].description = "butt"
+    #
+    #
+    #
+    #
+    # entity['label'] = labels[0].description
+    # print("Got to spot 6")
+    #
+    # # Save the new entity to Datastore
+    # datastore_client.put(entity)
+    # print("Got to spot 7")
 
     # Redirect to the home page.
     emotions = []
@@ -84,6 +126,7 @@ def upload_photo():
     if len(emotions) > 0:
         emojifinal = num_to_emoji(emotions)
     else:
+        print("no face")
         emojifinal = "No face detected"
 
     return render_template('homepage.html', labels=labels, faces=faces, web_entities=web_entities, public_url=image_public_url,emojifinal=emojifinal)
@@ -118,76 +161,24 @@ def num_to_emoji(values):
         eistring = "\U0001F920"
         return eistring
     values.pop()
+    if (values[0] == values[1] and values[1] == values[2] )or\
+        (values[1] == values[2] and values[2] == values[3]) or\
+            (values[0] == values[2] and values[2] == values[3]):
+        eistring = "\U0001F643"
+        return eistring
 
-    for val in values:
-        print(val)
     if (values[0] == values[1] and values[1] == values[2] and values[2] == values[3]):
         eistring = "\U0001F643"
         return eistring
-    #Values for Joy as primary emotion
-    if (values.index(max(values)) == 0 and get_difference(values) == 1):
-        eistring = "\U0001F60A"
-        return eistring
-    if (values.index(max(values)) == 0 and get_difference(values) == 2):
-        eistring = "\U0001F603"
-        return eistring
-    if (values.index(max(values)) == 0 and get_difference(values) == 3):
-        eistring = "\U0001F604"
-        return eistring
-    if (values.index(max(values)) == 0 and get_difference(values) == 4):
-        eistring = "\U0001F601"
-        return eistring
-    #Values for Sorrow as primary emtion
-    if (values.index(max(values)) == 1 and get_difference(values) == 1):
-        eistring = "\U00002639"
-        return eistring
-    if (values.index(max(values)) == 1 and get_difference(values) == 2):
-        eistring = "\U0001F61E"
-        return eistring
-    if (values.index(max(values)) == 1 and get_difference(values) == 3):
-        eistring = "\U0001F622"
-        return eistring
-    if (values.index(max(values)) == 1 and get_difference(values) == 4):
-        eistring = "\U0001F62D"
-        return eistring
-    #Values for Anger as primary emotion
-    if (values.index(max(values)) == 2 and get_difference(values) == 1):
-        eistring = "\U0001F624"
-        return eistring
-    if (values.index(max(values)) == 2 and get_difference(values) == 2):
-        eistring = "\U0001F620"
-        return eistring
-    if (values.index(max(values)) == 2 and get_difference(values) == 3):
-        eistring = "\U0001F621"
-        return eistring
-    if (values.index(max(values)) == 2 and get_difference(values) == 4):
-        eistring = "\U0001F47F"
-        return eistring
-    #Values for Suprise as primary emotion
-    if (values.index(max(values)) == 3 and get_difference(values) == 1):
-        eistring = "\U0001F626"
-        return eistring
-    if (values.index(max(values)) == 3 and get_difference(values) == 2):
-        eistring = "\U0001F627"
-        return eistring
-    if (values.index(max(values)) == 3 and get_difference(values) == 3):
-        eistring = "\U0001F633"
-        return eistring
-    if (values.index(max(values)) == 3 and get_difference(values) == 4):
-        eistring = "\U0001F628"
+
+    if (values[J] == values[SO]):
+        eistring = '\U0001F610'
         return eistring
 
     eistring = emojicodes[values.index(max(values))]
     return eistring
 
-def get_difference(values):
-    index = values.index(max(values))
-    max1 = values[index]
-    values[index]=0
-    max2 = max(values)
-    values[index]=max1
-    dif = max1 - max2
-    return dif
+
 
 if __name__ == '__main__':
     # This is used when running locally. Gunicorn is used to run the
