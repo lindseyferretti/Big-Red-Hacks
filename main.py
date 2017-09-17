@@ -103,7 +103,7 @@ def upload_photo():
     #
     #
     #
-    # #labels[0].description = "butt"
+    # #labels[0].description = "description"
     #
     #
     #
